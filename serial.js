@@ -36,21 +36,33 @@ function getSerialPortOptions() {
 }
 
 function startSendingData(port, server) {
-	const socket = io(server.getURL());
+	const socket = io(server.getURL());	
 	
-	let storedData;
+	let storedData = '';
 	let currentData;
 	port.on('data', (data) => {
-		currentData = new Buffer(data).toString();
-		
-		if(/\r\n$/.test(currentData) && storedData) {
-			const data = `[${storedData + currentData.replace('\r\n', '')}]`;
-			console.log(data);
-			socket.emit('newData', data);
-			storedData = undefined;
-		} else 
-			storedData = currentData;
+		currentData = new Buffer(data).toString()
+		.replace(/D,/g, '');
+
+		if (isCompleteData(currentData)) {
+			sendData(socket, currentData);
+		} else if (storedData && isCompleteData(storedData + currentData)) {
+			sendData(socket, storedData + currentData);
+			storedData = '';
+		} else {
+			storedData += currentData;
+		}
 	});
+}
+
+function isCompleteData(data) {
+	return data.includes('[') && data.includes(']');
+}
+
+function sendData(socket, data) {
+	data = data.replace(/D,/g, '');
+	console.log(data.replace(/\r\n/g, ''));
+	socket.emit('newData', data);
 }
 
 function openSerialConnection(portName) {
